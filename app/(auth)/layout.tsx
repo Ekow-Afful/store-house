@@ -26,7 +26,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </p>
           </div>
           <Image
-            src="/assets/icons/file-new.svg"
+            src="/assets/icons/file-new.webp"
             alt="files"
             width={342}
             height={342}
@@ -38,11 +38,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <section className="flex flex-1 flex-col items-center bg-white p-4 py-10 lg:justify-center lg:p-10 lg:py-0">
         <div className="flex gap-0 items-center lg:hidden mb-16">
           <Image
-            src="/assets/icons/logo-4.webp"
+            src="/assets/icons/logo-4.svg"
             alt="logo"
-            height={50}
-            width={120}
-            className=" "
+            height={100}
+            width={100}
+            className=""
           />
           <p className=" h-auto font-bold text-3xl pt-8 pr-8">StoreHouse</p>
         </div>
