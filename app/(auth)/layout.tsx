@@ -38,7 +38,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <section className="flex flex-1 flex-col items-center bg-white p-4 py-10 lg:justify-center lg:p-10 lg:py-0">
         <div className="flex gap-0 items-center lg:hidden mb-16">
           <Image
-            src="/assets/icons/logo-4.png"
+            src="/assets/icons/logo-4.webp"
             alt="logo"
             height={50}
             width={120}
