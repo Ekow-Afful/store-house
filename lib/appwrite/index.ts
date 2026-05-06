@@ -29,6 +29,16 @@ export const createSessionClient = async () => {
 };
 
 export const createAdminClient = async () => {
+  if (
+    !appwriteConfig.endpointUrl ||
+    !appwriteConfig.projectId ||
+    !appwriteConfig.secretKey
+  ) {
+    throw new Error(
+      "Appwrite is not configured on the server. Set NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT, and NEXT_APPWRITE_KEY in .env.local."
+    );
+  }
+
   const client = new Client()
     .setEndpoint(appwriteConfig.endpointUrl)
     .setProject(appwriteConfig.projectId)

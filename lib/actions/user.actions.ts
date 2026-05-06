@@ -25,13 +25,41 @@ const handleError = (error: unknown, message: string) => {
   throw error;
 };
 
-export const sendEmailOTP = async ({ email }: { email: string }) => {
+/** Readable message from Appwrite / Node errors for the UI */
+const toAppwriteUserMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    const err = error as Error & { response?: string };
+    if (typeof err.response === "string" && err.response.length > 0) {
+      try {
+        const body = JSON.parse(err.response) as { message?: string };
+        if (body?.message) return body.message;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (err.message) return err.message;
+  }
+  return "Something went wrong. Please try again.";
+};
+
+export type AuthEmailResult =
+  | { ok: true; accountId: string }
+  | { ok: false; message: string };
+
+export const sendEmailOTP = async ({
+  email,
+  accountId,
+}: {
+  email: string;
+  /** Existing Appwrite user id — required for login/resend so the OTP matches that account */
+  accountId?: string;
+}) => {
   const { account } = await createAdminClient();
 
   try {
-    const session = await account.createEmailToken(ID.unique(), email);
+    const token = await account.createEmailToken(accountId ?? ID.unique(), email);
 
-    return session.userId;
+    return token.userId;
   } catch (error) {
     handleError(error, "Failed to send email OTP");
   }
@@ -43,29 +71,38 @@ export const createAccount = async ({
 }: {
   fullName: string;
   email: string;
-}) => {
-  const existingUser = await getUserByEmail(email);
+}): Promise<AuthEmailResult> => {
+  try {
+    const existingUser = await getUserByEmail(email);
 
-  const accountId = await sendEmailOTP({ email });
-  if (!accountId) throw new Error("Failed to send an OTP");
+    const accountId = await sendEmailOTP({
+      email,
+      accountId: existingUser?.accountId,
+    });
+    if (!accountId) {
+      return { ok: false, message: "Could not send verification email." };
+    }
 
-  if (!existingUser) {
-    const { databases } = await createAdminClient();
+    if (!existingUser) {
+      const { databases } = await createAdminClient();
 
-    await databases.createDocument(
-      appwriteConfig.databaseId,
-      appwriteConfig.usersCollectionId,
-      ID.unique(),
-      {
-        fullName,
-        email,
-        avatar: avatarPlaceholderUrl,
-        accountId,
-      }
-    );
+      await databases.createDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.usersCollectionId,
+        ID.unique(),
+        {
+          fullName,
+          email,
+          avatar: avatarPlaceholderUrl,
+          accountId,
+        }
+      );
+    }
+
+    return { ok: true, accountId };
+  } catch (error) {
+    return { ok: false, message: toAppwriteUserMessage(error) };
   }
-
-  return parseStringify({ accountId });
 };
 
 export const verifySecret = async ({
@@ -84,10 +121,10 @@ export const verifySecret = async ({
       path: "/",
       httpOnly: true,
       sameSite: "strict",
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
     });
 
-    return parseStringify({ sesssionId: session.$id });
+    return parseStringify({ sessionId: session.$id });
   } catch (error) {
     handleError(error, "Failed to verify OTP");
   }
@@ -122,18 +159,28 @@ export const signOutUser = async () => {
   }
 };
 
-export const signInUser = async ({ email }: { email: string }) => {
+export const signInUser = async ({
+  email,
+}: {
+  email: string;
+}): Promise<AuthEmailResult> => {
   try {
     const existingUser = await getUserByEmail(email);
 
-    //User exists, send OTP
-    if (existingUser) {
-      await sendEmailOTP({ email });
-      return parseStringify({ accountId: existingUser.accountId });
+    if (!existingUser) {
+      return {
+        ok: false,
+        message: "No account found for this email. Try signing up first.",
+      };
     }
 
-    return parseStringify({ accountId: null, error: "User not found" });
+    await sendEmailOTP({
+      email,
+      accountId: existingUser.accountId,
+    });
+
+    return { ok: true, accountId: existingUser.accountId };
   } catch (error) {
-    handleError(error, "Failed to sign in user");
+    return { ok: false, message: toAppwriteUserMessage(error) };
   }
 };
